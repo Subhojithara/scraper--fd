@@ -3,66 +3,90 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { JobCardAdvanced } from "@/components/job-card-advanced"
+import { AIJobCardAdvanced } from "@/components/ai-job-card-advanced"
 import { DeleteAllDialog } from "@/components/delete-all-dialog"
+import { CreateAIJobDialog } from "@/components/create-ai-job-dialog"
 import { FilterDialog } from "@/components/filter-dialog"
-import { JobStatistics } from "@/components/job-statistics"
-import { Plus, Search, Loader2, Download, RefreshCw, Trash2, FileUp } from "lucide-react"
 import {
-  createJob,
-  getAllJobs,
-  deleteJob,
-  deleteAllJobs,
-  retryJob,
-  type Job,
+  getAllAIJobs,
+  deleteAIJob,
+  deleteAllAIJobs,
+  cancelAIJob,
+  retryAIJob,
+  getAIJobAnalytics,
+  type JobAI,
+  type JobAnalytics,
 } from "@/lib/api"
+import { Search, Loader2, ChevronDown, ChevronUp, Activity, Download, RefreshCw, Trash2, Mail } from "lucide-react"
 import { ExportDialog } from "@/components/export-dialog"
 import { BulkRetryDialog } from "@/components/bulk-retry-dialog"
-import { BulkJobDialog } from "@/components/bulk-job-dialog"
-import { exportJobs } from "@/lib/export-utils"
+import { exportAIJobs } from "@/lib/export-utils"
 import { useToast } from "@/components/toast"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Label } from "@/components/ui/label"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination"
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts"
+import { QuickActions } from "@/components/quick-actions"
+import { CostDashboard } from "@/components/cost-dashboard"
+import { ScratcherView } from "@/components/scratcher-view"
+import { BulkFollowUpDialog } from "@/components/bulk-follow-up-dialog"
 
-export default function JobsPage() {
+export default function JobsAIPage() {
   const { addToast } = useToast()
-  const [jobs, setJobs] = useState<Job[]>([])
+  const [jobs, setJobs] = useState<JobAI[]>([])
   const [loading, setLoading] = useState(false)
-  const [url, setUrl] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
-  const [filter, setFilter] = useState<"all" | "pending" | "scraping" | "scraped" | "cleaning" | "completed" | "failed">("all")
-  const [enableScraping, setEnableScraping] = useState(true)
-  const [enableCleaning, setEnableCleaning] = useState(true)
-  const [enableResearch, setEnableResearch] = useState(true)
+  const [filter, setFilter] = useState<"all" | "pending" | "processing" | "completed" | "failed">("all")
+  const [analytics, setAnalytics] = useState<JobAnalytics | null>(null)
+  const [showAnalytics, setShowAnalytics] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showBulkRetryDialog, setShowBulkRetryDialog] = useState(false)
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showBulkFollowUp, setShowBulkFollowUp] = useState(false)
+  const [activeTab, setActiveTab] = useState<"jobs" | "scratcher">("jobs")
 
   useEffect(() => {
     fetchJobs()
-    const hasActiveJobs = jobs.some((job) =>
-      ["pending", "scraping", "cleaning", "researching"].includes(job.status)
-    )
-    // Reduce polling frequency to avoid rate limits
-    const interval = setInterval(fetchJobs, hasActiveJobs ? 5000 : 10000)
+    // Only poll if there are active jobs (pending/processing)
+    // Use a ref to avoid stale closure issues
+    let intervalId: NodeJS.Timeout | null = null
+    const checkAndFetch = () => {
+      const hasActiveJobs = jobs.some(j => j.status === "pending" || j.status === "processing")
+      if (hasActiveJobs) {
+        fetchJobs().catch(() => {
+          // Silently handle errors during polling
+        })
+      }
+    }
+    intervalId = setInterval(checkAndFetch, 60000) // Poll every 60 seconds to reduce rate limit issues
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [jobs.length]) // Only depend on jobs.length to avoid recreating interval
+
+  useEffect(() => {
+    fetchAnalytics()
+    // Increase interval to 30 seconds to avoid rate limiting
+    const interval = setInterval(fetchAnalytics, 30000)
     return () => clearInterval(interval)
-  }, [jobs.length])
+  }, [])
 
   const fetchJobs = async () => {
     try {
       setLoading(true)
-      const fetchedJobs = await getAllJobs()
+      const fetchedJobs = await getAllAIJobs(0, 1000)
       setJobs(fetchedJobs)
     } catch (error: any) {
-      console.error("Failed to fetch jobs:", error)
-      // Don't show error for rate limits
+      console.error("Failed to fetch AI jobs:", error)
+      // Don't show error for rate limits, just log it
       if (error?.message?.includes("Too Many Requests") || error?.message?.includes("429")) {
+        // Silently handle rate limits - don't update state to avoid UI flicker
         return
       }
     } finally {
@@ -70,26 +94,25 @@ export default function JobsPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!url.trim()) return
+  const fetchAnalytics = async () => {
     try {
-      setLoading(true)
-      await createJob(url, enableScraping, enableCleaning, enableResearch)
-      setUrl("")
-      await fetchJobs()
-      addToast("Job created successfully", "success")
+      const data = await getAIJobAnalytics()
+      setAnalytics(data)
     } catch (error: any) {
-      console.error("Failed to create job:", error)
-      addToast(`Failed to create job: ${error.message}`, "error")
-    } finally {
-      setLoading(false)
+      console.error("Failed to fetch analytics:", error)
+      // Don't show error for rate limits or network errors during auto-refresh
+      if (error?.message?.includes("Too Many Requests") || 
+          error?.message?.includes("429") ||
+          error?.message?.includes("Failed to fetch")) {
+        // Silently handle - will retry on next interval
+        return
+      }
     }
   }
 
   const handleDelete = async (jobId: string) => {
     try {
-      await deleteJob(jobId)
+      await deleteAIJob(jobId)
       setJobs((prev) => prev.filter((j) => j.job_id !== jobId))
       addToast("Job deleted successfully", "success")
     } catch (error: any) {
@@ -98,9 +121,20 @@ export default function JobsPage() {
     }
   }
 
+  const handleCancel = async (jobId: string) => {
+    try {
+      await cancelAIJob(jobId)
+      await fetchJobs()
+      addToast("Job cancellation requested", "info")
+    } catch (error: any) {
+      console.error("Failed to cancel job:", error)
+      addToast(`Failed to cancel job: ${error.message}`, "error")
+    }
+  }
+
   const handleRetry = async (jobId: string) => {
     try {
-      await retryJob(jobId)
+      await retryAIJob(jobId)
       await fetchJobs()
       addToast("Job retry requested", "success")
     } catch (error: any) {
@@ -117,7 +151,7 @@ export default function JobsPage() {
     
     for (const jobId of jobIds) {
       try {
-        await retryJob(jobId)
+        await retryAIJob(jobId)
         results.success++
       } catch (error: any) {
         results.failed++
@@ -140,7 +174,7 @@ export default function JobsPage() {
     scope: "all" | "filtered" | "selected"
     dataLevel: "basic" | "summary" | "full"
   }) => {
-    await exportJobs(jobs, filteredJobs, Array.from(selectedJobIds), options)
+    await exportAIJobs(jobs, filteredJobs, Array.from(selectedJobIds), options)
   }
 
   const filteredJobs = jobs.filter((job) => {
@@ -187,7 +221,7 @@ export default function JobsPage() {
 
     for (const jobId of jobIdsArray) {
       try {
-        await deleteJob(jobId)
+        await deleteAIJob(jobId)
         success++
       } catch (error: any) {
         failed++
@@ -207,14 +241,11 @@ export default function JobsPage() {
   }
 
   const allSelected = paginatedJobs.length > 0 && paginatedJobs.every((job) => selectedJobIds.has(job.job_id))
-  const someSelected = paginatedJobs.some((job) => selectedJobIds.has(job.job_id)) && !allSelected
 
   const filterOptions = [
     { value: "all", label: "All Status" },
     { value: "pending", label: "Pending" },
-    { value: "scraping", label: "Scraping" },
-    { value: "scraped", label: "Scraped" },
-    { value: "cleaning", label: "Cleaning" },
+    { value: "processing", label: "Processing" },
     { value: "completed", label: "Completed" },
     { value: "failed", label: "Failed" },
   ]
@@ -225,13 +256,38 @@ export default function JobsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Regular Jobs</h1>
+          <h1 className="text-2xl font-semibold">AI Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your web scraping jobs
+            AI-powered web scraping with LLM extraction
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <BulkJobDialog onSuccess={fetchJobs} />
+          <Button
+            variant={activeTab === "jobs" ? "default" : "outline"}
+            onClick={() => setActiveTab("jobs")}
+            size="sm"
+          >
+            Jobs
+          </Button>
+          <Button
+            variant={activeTab === "scratcher" ? "default" : "outline"}
+            onClick={() => setActiveTab("scratcher")}
+            size="sm"
+          >
+            Scratcher
+          </Button>
+        </div>
+      </div>
+
+      {activeTab === "scratcher" ? (
+        <ScratcherView />
+      ) : (
+        <>
+      <div className="flex items-center justify-between">
+        <div></div>
+        <div className="flex items-center gap-2">
+          <QuickActions />
+          <CreateAIJobDialog onSuccess={fetchJobs} />
           {jobs.length > 0 && (
             <>
               <Button
@@ -250,84 +306,89 @@ export default function JobsPage() {
                 <RefreshCw className="h-4 w-4" />
                 Bulk Retry
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkFollowUp(true)}
+                className="gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                Bulk Follow-ups
+              </Button>
               <DeleteAllDialog
                 onConfirm={async () => {
-                  await deleteAllJobs()
+                  try {
+                    const result = await deleteAllAIJobs()
                   setJobs([])
                   await fetchJobs()
-                  addToast("All jobs deleted successfully", "success")
+                    addToast(
+                      `All AI jobs deleted successfully (${result.jobs_deleted} jobs, ${result.s3_objects_deleted} S3 objects)`,
+                      "success"
+                    )
+                  } catch (error: any) {
+                    addToast(error.message || "Failed to delete all AI jobs", "error")
+                  }
                 }}
-                title="Delete All Jobs"
-                description="This will permanently delete all jobs and their associated data."
-                itemType="Jobs"
+                title="Delete All AI Jobs"
+                description="This will permanently delete all AI jobs, emails, follow-ups, and their associated data (S3 files)."
+                itemType="AI Jobs"
               />
             </>
           )}
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Create New Job</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="url">URL</Label>
-              <Input
-                id="url"
-                type="url"
-                placeholder="https://example.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <Label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enableScraping}
-                  onChange={(e) => setEnableScraping(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm">Scraping</span>
-              </Label>
-              <Label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enableCleaning}
-                  onChange={(e) => setEnableCleaning(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm">Cleaning</span>
-              </Label>
-              <Label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enableResearch}
-                  onChange={(e) => setEnableResearch(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm">Research</span>
-              </Label>
-            </div>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
+      {analytics && (
+        <Card>
+          <CardHeader className="pb-3">
+            <button
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className="flex items-center justify-between w-full"
+            >
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Analytics
+              </CardTitle>
+              {showAnalytics ? (
+                <ChevronUp className="h-4 w-4" />
               ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Job
-                </>
+                <ChevronDown className="h-4 w-4" />
               )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </button>
+          </CardHeader>
+          {showAnalytics && (
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-4">
+                <div>
+                  <div className="text-2xl font-bold">{analytics.total_jobs}</div>
+                  <div className="text-xs text-muted-foreground">Total Jobs</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{analytics.completed_jobs}</div>
+                  <div className="text-xs text-muted-foreground">Completed</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">{analytics.failed_jobs}</div>
+                  <div className="text-xs text-muted-foreground">Failed</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold">
+                    ${analytics.total_cost_usd.toFixed(4)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Total Cost</div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Success Rate: {analytics.success_rate}% | Avg Time:{" "}
+                {analytics.avg_processing_time_ms
+                  ? `${(analytics.avg_processing_time_ms / 1000).toFixed(1)}s`
+                  : "N/A"}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      <CostDashboard />
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -343,7 +404,7 @@ export default function JobsPage() {
           filter={filter}
           onFilterChange={(value: any) => setFilter(value)}
           options={filterOptions}
-          title="Filter Jobs"
+          title="Filter AI Jobs"
           description="Select a status to filter jobs"
         />
         <div className="text-sm text-muted-foreground min-w-[100px] text-right">
@@ -411,7 +472,7 @@ export default function JobsPage() {
           <CardContent className="py-12 text-center">
             <p className="text-sm text-muted-foreground">
               {jobs.length === 0
-                ? "No jobs yet. Create your first job above."
+                ? "No AI jobs yet. Create your first job above."
                 : "No jobs match your filters."}
             </p>
           </CardContent>
@@ -420,10 +481,11 @@ export default function JobsPage() {
         <>
           <div className="space-y-3">
             {paginatedJobs.map((job) => (
-              <JobCardAdvanced
+              <AIJobCardAdvanced
                 key={job.job_id}
                 job={job}
                 onDelete={handleDelete}
+                onCancel={handleCancel}
                 onRetry={handleRetry}
                 selected={selectedJobIds.has(job.job_id)}
                 onSelect={handleSelectJob}
@@ -501,7 +563,7 @@ export default function JobsPage() {
         totalCount={jobs.length}
         filteredCount={filteredJobs.length}
         selectedCount={selectedJobIds.size}
-        jobType="regular"
+        jobType="ai"
       />
 
       <BulkRetryDialog
@@ -509,8 +571,18 @@ export default function JobsPage() {
         onOpenChange={setShowBulkRetryDialog}
         jobs={filteredJobs}
         onRetry={handleBulkRetry}
-        jobType="regular"
+        jobType="ai"
       />
+
+      <BulkFollowUpDialog
+        open={showBulkFollowUp}
+        onOpenChange={setShowBulkFollowUp}
+        onSuccess={fetchJobs}
+      />
+
+      <KeyboardShortcuts open={showShortcuts} onOpenChange={setShowShortcuts} />
+        </>
+      )}
     </div>
   )
 }
