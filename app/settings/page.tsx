@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Settings, Save } from "lucide-react"
 import { getStoredApiKey, setStoredApiKey } from "@/lib/api"
+import { ProxySettings } from "@/components/proxy-settings"
 
 export default function SettingsPage() {
   const [openaiKey, setOpenaiKey] = useState("")
@@ -76,6 +77,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ProxySettings />
 
       <Card>
         <CardHeader>

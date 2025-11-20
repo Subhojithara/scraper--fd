@@ -58,6 +58,7 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
   const [emailPrompt, setEmailPrompt] = React.useState<string>("")
   const [emailLlmProvider, setEmailLlmProvider] = React.useState<"openai" | "gemini">("gemini")
   const [emailModel, setEmailModel] = React.useState<string>("gemini-2.5-flash")
+  const [emailApiKey, setEmailApiKey] = React.useState<string>("")
   const [bulkResult, setBulkResult] = React.useState<{
     created: number
     failed: number
@@ -82,8 +83,12 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
   React.useEffect(() => {
     if (emailLlmProvider === "openai") {
       setEmailModel("gpt-4o-mini")
+      const savedKey = localStorage.getItem("openaiApiKey")
+      setEmailApiKey(savedKey || "")
     } else {
       setEmailModel("gemini-2.5-flash")
+      const savedKey = localStorage.getItem("geminiApiKey")
+      setEmailApiKey(savedKey || "")
     }
   }, [emailLlmProvider])
 
@@ -116,12 +121,12 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    
+
     if (uploadType === "csv" && !csvFile) {
       setError("Please select a CSV file")
       return
     }
-    
+
     if (uploadType === "json") {
       const urls = parseJsonUrls(jsonUrls)
       if (urls.length === 0) {
@@ -138,7 +143,7 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
       setLoading(true)
       setBulkResult(null)
       setUploadProgress(0)
-      
+
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => (prev >= 90 ? prev : prev + 5))
       }, 200)
@@ -150,6 +155,16 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
           localStorage.setItem("openaiApiKey", finalApiKey)
         } else if (llmProvider === "gemini") {
           localStorage.setItem("geminiApiKey", finalApiKey)
+        }
+      }
+
+      let finalEmailApiKey: string | undefined = undefined
+      if (enableEmail && emailApiKey && emailApiKey.trim()) {
+        finalEmailApiKey = emailApiKey.trim()
+        if (emailLlmProvider === "openai") {
+          localStorage.setItem("openaiApiKey", finalEmailApiKey)
+        } else if (emailLlmProvider === "gemini") {
+          localStorage.setItem("geminiApiKey", finalEmailApiKey)
         }
       }
 
@@ -167,7 +182,8 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
           enableEmail,
           enableEmail ? emailPrompt : undefined,
           enableEmail ? emailLlmProvider : undefined,
-          enableEmail ? emailModel : undefined
+          enableEmail ? emailModel : undefined,
+          finalEmailApiKey
         )
       } else {
         const urls = parseJsonUrls(jsonUrls)
@@ -183,7 +199,8 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
           enableEmail,
           enableEmail ? emailPrompt : undefined,
           enableEmail ? emailLlmProvider : undefined,
-          enableEmail ? emailModel : undefined
+          enableEmail ? emailModel : undefined,
+          finalEmailApiKey
         )
       }
 
@@ -213,7 +230,7 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
       setLoading(false)
     }
   }
-  
+
   const jsonUrlCount = parseJsonUrls(jsonUrls).length
 
   const models = llmProvider === "openai" ? OPENAI_MODELS : llmProvider === "gemini" ? GEMINI_MODELS : []
@@ -233,7 +250,7 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
             Upload URLs via CSV file or JSON to create multiple AI scraping jobs at once
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <Card className="border-border/50 shadow-sm">
             <CardContent className="pt-6 space-y-4">
@@ -248,7 +265,7 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
                     JSON Upload
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="csv" className="space-y-4 mt-4">
                   <div className="space-y-2">
                     <Label htmlFor="csv-file">CSV File *</Label>
@@ -270,7 +287,7 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
                     </p>
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="json" className="space-y-4 mt-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -511,6 +528,24 @@ export function BulkAIJobDialog({ onSuccess }: BulkAIJobDialogProps) {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emailApiKey" className="text-sm font-medium">
+                        Email API Key <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Input
+                        id="emailApiKey"
+                        type="password"
+                        placeholder={typeof window !== "undefined" && localStorage.getItem(emailLlmProvider === "openai" ? "openaiApiKey" : "geminiApiKey") ? "Using saved key (enter new to override)" : "Enter API key for email generation"}
+                        value={emailApiKey}
+                        onChange={(e) => setEmailApiKey(e.target.value)}
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {typeof window !== "undefined" && localStorage.getItem(emailLlmProvider === "openai" ? "openaiApiKey" : "geminiApiKey")
+                          ? "Saved key will be used if left empty"
+                          : "Leave empty to use system default (if configured)"}
+                      </p>
                     </div>
                   </div>
                 )}

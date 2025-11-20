@@ -50,71 +50,71 @@ export async function createJob(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       url,
       enable_scraping: enableScraping,
       enable_cleaning: enableCleaning,
       enable_research: enableResearch
     }),
   });
-  
+
   if (!response.ok) {
     throw new Error(`Failed to create job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getJob(jobId: string): Promise<Job> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getAllJobs(skip = 0, limit = 100): Promise<Job[]> {
   const response = await fetch(`${API_BASE_URL}/jobs?skip=${skip}&limit=${limit}`);
-  
+
   if (!response.ok) {
     if (response.status === 429) {
       throw new Error("Too Many Requests - Please wait a moment before refreshing");
     }
     throw new Error(`Failed to get jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getJobStatusHistory(jobId: string): Promise<JobStatusHistory[]> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/history`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get job history: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getRawData(jobId: string): Promise<RawData> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/raw-data`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get raw data: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getCleanedData(jobId: string): Promise<CleanedData> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/cleaned-data`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get cleaned data: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -122,7 +122,7 @@ export async function deleteJob(jobId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
     method: 'DELETE',
   });
-  
+
   if (!response.ok) {
     throw new Error(`Failed to delete job: ${response.statusText}`);
   }
@@ -132,11 +132,11 @@ export async function deleteAllJobs(): Promise<{ message: string; jobs_deleted: 
   const response = await fetch(`${API_BASE_URL}/jobs`, {
     method: 'DELETE',
   });
-  
+
   if (!response.ok) {
     throw new Error(`Failed to delete all jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -144,12 +144,12 @@ export async function retryJob(jobId: string): Promise<Job> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/retry`, {
     method: 'POST',
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to retry job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -170,17 +170,17 @@ export interface BulkJobResponse {
 export async function createBulkJobsFromCSV(file: File): Promise<BulkJobResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const response = await fetch(`${API_BASE_URL}/scrape/bulk/csv`, {
     method: 'POST',
     body: formData,
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to upload CSV: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -203,11 +203,11 @@ export interface ResearchData {
 
 export async function getResearchData(jobId: string): Promise<ResearchData> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/research-data`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get research data: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -215,12 +215,12 @@ export async function triggerResearch(jobId: string): Promise<{ message: string;
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/research`, {
     method: 'POST',
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to trigger research: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -228,11 +228,11 @@ export async function reconcileJobStatus(jobId: string): Promise<{ message: stri
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/reconcile-status`, {
     method: 'POST',
   });
-  
+
   if (!response.ok) {
     throw new Error(`Failed to reconcile job status: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -298,43 +298,43 @@ export async function createAIJob(
     output_format: outputFormat,
     enable_research: enableResearch,
   };
-  
+
   if (extractionPrompt) {
     body.extraction_prompt = extractionPrompt;
   }
-  
+
   if (researchPrompt) {
     body.research_prompt = researchPrompt;
   }
-  
+
   if (apiKey) {
     body.api_key = apiKey;
   }
-  
+
   if (model) {
     body.model = model;
   }
-  
+
   if (maxPages !== undefined && (strategy === 'multi_page' || strategy === 'sitemap')) {
     body.max_pages = maxPages;
   }
-  
+
   if (enableEmailGeneration !== undefined) {
     body.enable_email_generation = enableEmailGeneration;
   }
-  
+
   if (emailPrompt) {
     body.email_prompt = emailPrompt;
   }
-  
+
   if (emailLlmProvider) {
     body.email_llm_provider = emailLlmProvider;
   }
-  
+
   if (emailModel) {
     body.email_model = emailModel;
   }
-  
+
   const response = await fetch(`${API_BASE_URL}/scrape-ai`, {
     method: 'POST',
     headers: {
@@ -342,22 +342,22 @@ export async function createAIJob(
     },
     body: JSON.stringify(body),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to create AI job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getAIJob(jobId: string): Promise<JobAI> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get AI job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -373,56 +373,56 @@ export async function getAllAIJobs(
   });
   if (status) params.append('status', status);
   if (urlContains) params.append('url_contains', urlContains);
-  
+
   const response = await fetch(`${API_BASE_URL}/jobs-ai?${params}`);
-  
+
   if (!response.ok) {
     if (response.status === 429) {
       throw new Error("Too Many Requests - Please wait a moment before refreshing");
     }
     throw new Error(`Failed to get AI jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getAIJobJSON(jobId: string): Promise<any> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/json`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get AI job JSON: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getAIJobMarkdown(jobId: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/markdown`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get AI job Markdown: ${response.statusText}`);
   }
-  
+
   return response.text();
 }
 
 export async function getAIJobMetadata(jobId: string): Promise<any> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/metadata`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get AI job metadata: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getAIJobCleanedData(jobId: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/cleaned`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get AI job cleaned data: ${response.statusText}`);
   }
-  
+
   return response.text();
 }
 
@@ -452,7 +452,7 @@ export async function getAIJobAnalytics(): Promise<JobAnalytics> {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       // Handle rate limiting specifically
       if (response.status === 429) {
@@ -460,7 +460,7 @@ export async function getAIJobAnalytics(): Promise<JobAnalytics> {
       }
       throw new Error(`Failed to get AI job analytics: ${response.statusText}`);
     }
-    
+
     return response.json();
   } catch (error: any) {
     // Handle network errors
@@ -475,12 +475,12 @@ export async function cancelAIJob(jobId: string): Promise<JobAI> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/cancel`, {
     method: 'POST',
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to cancel AI job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -488,12 +488,12 @@ export async function retryAIJob(jobId: string): Promise<JobAI> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/retry`, {
     method: 'POST',
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to retry AI job: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -517,11 +517,12 @@ export async function createBulkAIJobsFromCSV(
   enableEmailGeneration?: boolean,
   emailPrompt?: string,
   emailLlmProvider?: 'openai' | 'gemini',
-  emailModel?: string
+  emailModel?: string,
+  emailApiKey?: string
 ): Promise<BulkJobAIResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const params = new URLSearchParams({
     strategy,
     llm_provider: llmProvider,
@@ -535,17 +536,18 @@ export async function createBulkAIJobsFromCSV(
   if (emailPrompt) params.append('email_prompt', emailPrompt);
   if (emailLlmProvider) params.append('email_llm_provider', emailLlmProvider);
   if (emailModel) params.append('email_model', emailModel);
-  
+  if (emailApiKey) params.append('email_api_key', emailApiKey);
+
   const response = await fetch(`${API_BASE_URL}/scrape-ai/bulk/csv?${params}`, {
     method: 'POST',
     body: formData,
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to upload CSV: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -561,7 +563,8 @@ export async function createBulkAIJobsFromJSON(
   enableEmailGeneration?: boolean,
   emailPrompt?: string,
   emailLlmProvider?: 'openai' | 'gemini',
-  emailModel?: string
+  emailModel?: string,
+  emailApiKey?: string
 ): Promise<BulkJobAIResponse> {
   const payload: any = {
     urls,
@@ -569,7 +572,7 @@ export async function createBulkAIJobsFromJSON(
     llm_provider: llmProvider,
     output_format: outputFormat,
   };
-  
+
   if (extractionPrompt) payload.extraction_prompt = extractionPrompt;
   if (apiKey) payload.api_key = apiKey;
   if (model) payload.model = model;
@@ -578,7 +581,8 @@ export async function createBulkAIJobsFromJSON(
   if (emailPrompt) payload.email_prompt = emailPrompt;
   if (emailLlmProvider) payload.email_llm_provider = emailLlmProvider;
   if (emailModel) payload.email_model = emailModel;
-  
+  if (emailApiKey) payload.email_api_key = emailApiKey;
+
   const response = await fetch(`${API_BASE_URL}/scrape-ai/bulk/json`, {
     method: 'POST',
     headers: {
@@ -586,12 +590,12 @@ export async function createBulkAIJobsFromJSON(
     },
     body: JSON.stringify(payload),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to create bulk AI jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -607,7 +611,7 @@ export async function createBulkJobsFromJSON(
     enable_cleaning: enableCleaning,
     enable_research: enableResearch,
   };
-  
+
   const response = await fetch(`${API_BASE_URL}/scrape/bulk/json`, {
     method: 'POST',
     headers: {
@@ -615,12 +619,12 @@ export async function createBulkJobsFromJSON(
     },
     body: JSON.stringify(payload),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to create bulk jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -643,7 +647,7 @@ export async function deleteAIJob(jobId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}`, {
     method: 'DELETE',
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to delete AI job: ${response.statusText}`);
@@ -654,22 +658,22 @@ export async function deleteAllAIJobs(): Promise<{ message: string; jobs_deleted
   const response = await fetch(`${API_BASE_URL}/jobs-ai`, {
     method: 'DELETE',
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to delete all AI jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getUnifiedJobs(skip = 0, limit = 100): Promise<UnifiedJobsResponse> {
   const response = await fetch(`${API_BASE_URL}/jobs/unified?skip=${skip}&limit=${limit}`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get unified jobs: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -710,11 +714,11 @@ export interface UnifiedStats {
 
 export async function getUnifiedStats(): Promise<UnifiedStats> {
   const response = await fetch(`${API_BASE_URL}/jobs/unified/stats`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get unified stats: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -775,32 +779,32 @@ export async function generateEmail(
     },
     body: JSON.stringify(emailRequest),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to generate email: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getEmailsForJob(jobId: string): Promise<EmailJob[]> {
   const response = await fetch(`${API_BASE_URL}/jobs-ai/${jobId}/emails`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get emails: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getEmail(emailId: string): Promise<EmailJob> {
   const response = await fetch(`${API_BASE_URL}/emails/${emailId}`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get email: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -808,7 +812,7 @@ export async function deleteEmail(emailId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/emails/${emailId}`, {
     method: 'DELETE',
   });
-  
+
   if (!response.ok) {
     throw new Error(`Failed to delete email: ${response.statusText}`);
   }
@@ -816,11 +820,11 @@ export async function deleteEmail(emailId: string): Promise<void> {
 
 export async function getEmailCostSummary(): Promise<CostSummary> {
   const response = await fetch(`${API_BASE_URL}/emails/cost-summary`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get cost summary: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -844,12 +848,12 @@ export async function bulkGenerateEmails(
       ...emailRequest,
     }),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to bulk generate emails: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -901,21 +905,21 @@ export interface BulkRetryResponse {
 
 export async function getEmailStats(): Promise<EmailStats> {
   const response = await fetch(`${API_BASE_URL}/emails/stats`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get email stats: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getFailedEmailStats(): Promise<FailedEmailStats> {
   const response = await fetch(`${API_BASE_URL}/emails/failed/stats`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get failed email stats: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -930,13 +934,13 @@ export async function getFailedEmails(
   params.append('limit', limit.toString());
   if (errorType) params.append('error_type', errorType);
   if (jobAiId) params.append('job_ai_id', jobAiId);
-  
+
   const response = await fetch(`${API_BASE_URL}/emails/failed?${params.toString()}`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get failed emails: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -951,12 +955,12 @@ export async function retryEmail(
     },
     body: JSON.stringify(retryRequest),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to retry email: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -970,12 +974,12 @@ export async function bulkRetryEmails(
     },
     body: JSON.stringify(bulkRetryRequest),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to bulk retry emails: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -989,12 +993,12 @@ export async function retryEmailsByError(
     },
     body: JSON.stringify(retryByErrorRequest),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to retry emails by error: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -1087,7 +1091,7 @@ export async function generateFollowUps(
       },
       body: JSON.stringify(request),
     });
-    
+
     if (!response.ok) {
       let errorDetail = response.statusText;
       try {
@@ -1100,7 +1104,7 @@ export async function generateFollowUps(
       }
       throw new Error(errorDetail || `Failed to generate follow-ups: ${response.statusText}`);
     }
-    
+
     return await response.json();
   } catch (error: any) {
     // Handle network errors
@@ -1115,21 +1119,21 @@ export async function generateFollowUps(
 
 export async function getFollowUpsForEmail(emailId: string): Promise<FollowUp[]> {
   const response = await fetch(`${API_BASE_URL}/emails/${emailId}/follow-ups`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get follow-ups: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getFollowUp(followUpId: string): Promise<FollowUp> {
   const response = await fetch(`${API_BASE_URL}/follow-ups/${followUpId}`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get follow-up: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -1144,12 +1148,12 @@ export async function retryFollowUp(
     },
     body: JSON.stringify(retryRequest),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to retry follow-up: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -1163,12 +1167,12 @@ export async function bulkRetryFollowUps(
     },
     body: JSON.stringify(bulkRetryRequest),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to bulk retry follow-ups: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
@@ -1183,22 +1187,22 @@ export async function scheduleFollowUp(
     },
     body: JSON.stringify({ scheduled_at: scheduledAt }),
   });
-  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(error.detail || `Failed to schedule follow-up: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
 export async function getFollowUpStats(): Promise<FollowUpStats> {
   const response = await fetch(`${API_BASE_URL}/follow-ups/stats`);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to get follow-up stats: ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
